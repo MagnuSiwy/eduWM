@@ -3,8 +3,8 @@ from systemd.journal import JournalHandler
 import xcffib
 import xcffib.xproto
 from xcffib.xproto import EventMask
-from config import keybinds
-from utils import KeyUtil
+from config import keybinds, wallpaper
+from utils import Utils
 import signal
 import subprocess as sp
 
@@ -14,24 +14,21 @@ class WindowManager:
         self.conn = xcffib.connect()
         self.screen = self.conn.get_setup().roots[0]
         self.root = self.screen.root
-        self.key_util = KeyUtil(self.conn)
+        self.utils = Utils(self.conn)
         self.windows = []
         self.focus_idx = 0
+        self.wm_protocols = self.get_atom("WM_PROTOCOLS")
+        self.wm_delete_window = self.get_atom("WM_DELETE_WINDOW")
+        #log.warning(f"window -> atoms ids protocols:{self.wm_protocols}; delete:{self.wm_delete_window}")
 
-        # self.conn.core.ChangeWindowAttributes(
-        #     self.root,
-        #     xcffib.xproto.CW.BackPixel,
-        #     [0x00FF00]
-        # )
-        # self.conn.flush()
-
-        # Set up event listening on the root window
         try:
             log.warning("Start init process")
             self.conn.core.ChangeWindowAttributesChecked(
                 self.root,
                 xcffib.xproto.CW.EventMask,
-                [EventMask.SubstructureNotify | EventMask.SubstructureRedirect | EventMask.EnterWindow],
+                [EventMask.SubstructureNotify | 
+                 EventMask.SubstructureRedirect | 
+                 EventMask.EnterWindow],
             ).check()
             log.warning("Init process done")
         except:
@@ -40,12 +37,24 @@ class WindowManager:
 
         self.conn.flush()
 
+    
+    def reload_config(self):
+        import importlib
+        importlib.reload(keybinds)
+
 
     def run(self):
         """Main event loop."""
-        for bind in keybinds:
-            keycode = self.key_util.get_keycode(KeyUtil.string_to_keysym(bind[1]))
-            modifier = getattr(xcffib.xproto.KeyButMask, bind[0], 0)
+        
+        wall, wall_mode = wallpaper
+        try:
+            sp.run(["feh", f"--bg-{wall_mode}", wall])
+        except Exception as e:
+            log.warning(f"Error while setting a wallpaper: {e}")
+
+        for mod, key, _ in keybinds:
+            keycode = self.utils.get_keycode(Utils.string_to_keysym(key))
+            modifier = getattr(xcffib.xproto.KeyButMask, mod, 0)
 
             self.conn.core.GrabKeyChecked(
                 False,
@@ -58,15 +67,13 @@ class WindowManager:
 
         while True:
             try:
-                log.warning("Getting an event")
+                # log.warning("Getting an event")
                 event = self.conn.wait_for_event()
-                log.warning(f"Handling an event {event}")
+                # log.warning(f"Handling an event {event}")
                 self.handle_event(event)
             except Exception as e:
-                log.error(f"ERROR: {e}")
+                log.error(f"Main loop: {e}")
                 break 
-            # self.arrange_windows()
-            # self.conn.flush()
 
 
     def handle_event(self, event):
@@ -78,8 +85,8 @@ class WindowManager:
             log.warning(f"Keypress: {event}")
             self.handle_keypress(event)
         if isinstance(event, xcffib.xproto.EnterNotifyEvent):
-            log.warning(f"Mouse entered window: {event}")
-            #self.update_focus(event.window)
+            log.warning(f"Mouse entered window: {event.event}")
+            self.update_focus(event.event)
         # if isinstance(event, xcffib.xproto.ConfigureRequestEvent):
         #     log.warning(f"Configure request for a window: {event.window}")
         #     self.arrange_windows()
@@ -99,6 +106,11 @@ class WindowManager:
         
         if window not in self.windows:
             log.warning(f"Mapping window: {window}")
+            self.conn.core.ChangeWindowAttributes(
+                window,
+                xcffib.xproto.CW.EventMask,
+                [xcffib.xproto.EventMask.EnterWindow]
+            )
             self.conn.core.MapWindow(window)
             self.windows.insert(0, window)
             self.focus_idx = 0
@@ -149,14 +161,29 @@ class WindowManager:
         """Remove a window from management."""
         if window in self.windows: 
             self.windows.remove(window)
-            self.focus_idx %= len(self.windows)
+            self.focus_idx %= (len(self.windows) if self.windows else 1)
 
             try:
-                attr = self.conn.core.GetWindowAttributes(window).reply()
-                if attr.map_state != xcffib.xproto.MapState.Unmapped:
-                    self.conn.core.DestroyWindow(window)
-            except xcffib.ConnectionException as e:
-                log.warning(f"Window {window} already destroyed: {e}")
+                reply = self.conn.core.GetProperty(
+                    False, window, self.wm_protocols, xcffib.xproto.Atom.ATOM, 0, 32
+                ).reply()
+
+                if self.wm_delete_window in reply.value.to_atoms():
+                    data = xcffib.xproto.ClientMessageData.synthetic([self.wm_delete_window, 0, 0, 0, 0])
+                    # data = xcffib.xproto.ClientMessageData()
+                    # data.data32 = [self.wm_delete_window, xcffib.xproto.Time.CurrentTime, 0, 0, 0]
+                    event = xcffib.xproto.ClientMessageEvent.synthetic(
+                        format=32,
+                        window=window, 
+                        type=self.wm_protocols,
+                        data=data
+                    )
+                    self.conn.core.SendEvent(False, window, xcffib.xproto.EventMask.NoEvent, event.pack())
+                else:
+                    self.conn.core.KillClient(window)
+            except Exception as e:
+                log.warning(f"Error while killing a window: {e}")
+                self.conn.core.KillClient(window)
 
         self.conn.flush()
         self.arrange_windows()
@@ -168,7 +195,6 @@ class WindowManager:
 
             self.focus_idx = (self.focus_idx + 1) % len(self.windows)
             self.conn.core.SetInputFocus(xcffib.xproto.InputFocus.PointerRoot, self.windows[self.focus_idx], xcffib.xproto.Time.CurrentTime)
-            self.conn.core.RaiseWindow(self.windows[self.focus_idx])
             self.conn.flush()
 
         if function == "PREVIOUS_WINDOW":
@@ -176,13 +202,15 @@ class WindowManager:
 
             self.focus_idx = (self.focus_idx - 1) % len(self.windows)
             self.conn.core.SetInputFocus(xcffib.xproto.InputFocus.PointerRoot, self.windows[self.focus_idx], xcffib.xproto.Time.CurrentTime)
-            self.conn.core.RaiseWindow(self.windows[self.focus_idx])
             self.conn.flush()
 
         if function == "CLOSE":
             self.cleanup_window(self.windows[self.focus_idx])
             # self.arrange_windows()
             # self.conn.flush()
+
+        if function == "RELOAD":
+            self.reload_config()
 
         if function == "EXIT":
             log.warning("Exiting window manager")
@@ -192,7 +220,7 @@ class WindowManager:
     def handle_keypress(self, event):
         """Handle keypress events based on the configuration."""
         for modifier, key, function in keybinds:
-            keycode = self.key_util.get_keycode(KeyUtil.string_to_keysym(key))
+            keycode = self.utils.get_keycode(Utils.string_to_keysym(key))
             modifier = getattr(xcffib.xproto.KeyButMask, modifier, 0)
 
             if keycode == event.detail and modifier == event.state:
@@ -201,6 +229,10 @@ class WindowManager:
                 except:
                     self.handle_action(function)
 
+    
+    def get_atom(self, name):
+        return self.conn.core.InternAtom(False, len(name), name).reply().atom
+
 
     def cleanup(self):
         """Cleanup when exiting."""
@@ -208,13 +240,19 @@ class WindowManager:
         print("Exiting window manager.")
         exit()
 
-
+import os
+import time
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, lambda s, f: exit(0))
     log = logging.getLogger('demo')
     log.addHandler(JournalHandler())
     log.setLevel(logging.INFO)
     log.warning("Starting the Window Manager")
+    #sp.Popen(["export", "DISPLAY=:1"])
+    #try:
+    #    xephyr_process = sp.Popen(["Xephyr", ":1", "-screen", "1280x720", "-ac"])
+    #except Exception as e:
+    #    log.warning(f"Error while initializing xephyr {e}")
+    #time.sleep(2)
     wm = WindowManager()
     wm.run()
-
+    #xephyr_process.terminate()

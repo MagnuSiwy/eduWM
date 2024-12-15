@@ -1,29 +1,24 @@
-
-
 import xpybutil
 import xpybutil.keybind
+import xcffib
+import xcffib.xproto
+from PIL import Image
 
 
-class KeyUtil:
+class Utils:
     def __init__(self, conn):
         self.conn = conn
-
-        # The the min and max of keycodes associated with your keyboard. A keycode will never
-        # be less than eight because I believe the 0-7 keycodes are reserved. The keycode zero
-        # symbolizes AnyKey and I can't find references to the other seven. The max keycode is 255.
         self.min_keycode = self.conn.get_setup().min_keycode
         self.max_keycode = self.conn.get_setup().max_keycode
-
         self.keyboard_mapping = self.conn.core.GetKeyboardMapping(
-            # The array of keysyms returned by this function will start at min_keycode so that
-            # the modifiers are not included.
             self.min_keycode,
-            # Total number of keycodes
             self.max_keycode - self.min_keycode + 1
         ).reply()
 
+
     def string_to_keysym(string):
         return xpybutil.keysymdef.keysyms[string]
+
 
     def get_keysym(self, keycode, keysym_offset):
         """
@@ -39,16 +34,10 @@ class KeyUtil:
 
         keysyms_per_keycode = self.keyboard_mapping.keysyms_per_keycode
 
-        # The keyboard_mapping keysyms. This is a 2d array of keycodes x keysyms mapped to a 1d
-        # array. Each keycode row has a certain number of keysym columns. Imagine we had the
-        # keycode for 't'. In the 1d array we first jump to the 't' row with
-        # keycode * keysyms_per_keycode. Now the next keysyms_per_keycode number
-        # of items in the array are columns for the keycode row of 't'. To access a specific
-        # column we just add the keysym position to the keycode * keysyms_per_keycode position.
         return self.keyboard_mapping.keysyms[
-            # The keysyms array does not include modifiers, so subtract min_keycode from keycode.
-            (keycode - self.min_keycode) * self.keyboard_mapping.keysyms_per_keycode + keysym_offset
+            (keycode - self.min_keycode) * keysyms_per_keycode + keysym_offset
         ]
+
 
     def get_keycode(self, keysym):
         """
@@ -58,22 +47,62 @@ class KeyUtil:
         :returns: Keycode if found, else None
         """
 
-        # X must map the keys on your keyboard to something it can understand. To do this it has
-        # the concept of keysyms and keycodes. A keycode is a number 8-255 that maps to a physical
-        # key on your keyboard. X then generates an array that maps keycodes to keysyms.
-        # Keysyms differ from keycodes in that they take into account modifiers. With keycodes
-        # 't' and 'T' are the same, but they have different keysyms. You can think of 'T'
-        # as 't + CapsLock' or 't + Shift'.
-
         keysyms_per_keycode = self.keyboard_mapping.keysyms_per_keycode
 
-        # Loop through each keycode. Think of this as a row in a 2d array.
-        # Row: loop from the min_keycode through the max_keycode
         for keycode in range(self.min_keycode, self.max_keycode + 1):
-            # Col: loop from 0 to keysyms_per_keycode. Think of this as a column in a 2d array.
             for keysym_offset in range(0, keysyms_per_keycode):
                 if self.get_keysym(keycode, keysym_offset) == keysym:
                     return keycode
 
         return None
+    
 
+    # def set_wallpaper(self, image_path):
+    #     img = Image.open(image_path).convert("RGB")
+    #     img = img.resize((self.screen.width_in_pixels, self.screen.height_in_pixels))
+    #     pixel_data = img.tobytes("raw", "BGRX")
+
+    #     pixmap = self.conn.generate_id()
+    #     self.conn.core.CreatePixmap(
+    #         self.screen.root_depth, 
+    #         pixmap, 
+    #         self.root, 
+    #         self.screen.width_in_pixels, 
+    #         self.screen.height_in_pixels
+    #     )
+
+    #     gc = self.conn.generate_id()
+    #     self.conn.core.CreateGC(gc, pixmap, 0, [])
+
+    #     self.conn.core.PutImage(
+    #         xcffib.xproto.ImageFormat.ZPixmap,
+    #         pixmap,
+    #         gc,
+    #         self.screen.width_in_pixels, 
+    #         self.screen.height_in_pixels,
+    #         0,
+    #         0,
+    #         0,
+    #         24,
+    #         pixel_data
+    #     )
+
+    #     self.conn.core.ChangeWindowAttributes(
+    #         self.root,
+    #         xcffib.xproto.CW.BackPixmap,
+    #         [pixmap]
+    #     )
+
+    #     self.conn.core.FreePixmap(pixmap)
+    #     self.conn.core.FreeGC(gc)
+
+    #     self.conn.core.ClearArea(
+    #         0,                      # Exposures (0 = don't generate)
+    #         self.root,              # Drawable (root window)
+    #         0,                      # X
+    #         0,                      # Y
+    #         self.screen.width_in_pixels,
+    #         self.screen.height_in_pixels
+    #     )
+
+    #     self.conn.flush()
