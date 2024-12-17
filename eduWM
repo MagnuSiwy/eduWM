@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -x
+exec 2> ~/eduWM/wm_debug.log
+
+# Set up the display environment
+export DISPLAY=:0
+
+# Start the window manager
+echo "Starting the Python window manager..."
+python3 ~/eduWM/testing/wm.py

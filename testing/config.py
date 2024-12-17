@@ -22,9 +22,9 @@ keybinds = [
 focus = "mouse"
 
 # wallpaper: [path, mode]
-# wallpaper path - path to your wallpaper
+# wallpaper path - full path to your wallpaper
 # wallpaper modes:
 #   scale - Scale the image to fit the screen and preseve the aspect ratio
 #   fill - Scale the image and crop to fit the screen aspect ratio
 #   center - Center the image without scaling
-wallpaper = ["~/eduWM/forest_LeonardoAI.jpg", "scale"]
+wallpaper = ["/home/shrek/eduWM/forest_LeonardoAI.jpg", "scale"]

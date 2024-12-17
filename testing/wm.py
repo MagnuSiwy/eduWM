@@ -11,7 +11,10 @@ import subprocess as sp
 
 class WindowManager:
     def __init__(self):
-        self.conn = xcffib.connect()
+        try:
+            self.conn = xcffib.connect()
+        except Exception as e:
+            log.warning(f"Cannot create the connection to X server: {e}")
         self.screen = self.conn.get_setup().roots[0]
         self.root = self.screen.root
         self.utils = Utils(self.conn)
