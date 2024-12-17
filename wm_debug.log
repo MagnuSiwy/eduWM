@@ -1,7 +1,0 @@
-++ export DISPLAY=:0
-++ DISPLAY=:0
-++ echo 'Starting the Python window manager...'
-++ python3 /home/shrek/eduWM/testing/wm.py
-xterm: cannot load font "-misc-fixed-medium-r-semicondensed--13-120-75-75-c-60-iso10646-1"
-xterm: cannot load font "-misc-fixed-medium-r-semicondensed--13-120-75-75-c-60-iso10646-1"
-xterm: fatal IO error 11 (Resource temporarily unavailable) or KillClient on X server ":0"
