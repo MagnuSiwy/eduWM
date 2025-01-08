@@ -144,14 +144,34 @@ class WindowManager:
         margin_out = config.margin_out
         margin_in = config.margin_in
         border_size = config.border_size
+        layout = config.layout
 
-        if config.layout == "column":
+        if layout == "columns":
             width = ((self.screen.width_in_pixels - 2 * margin_out) // len(self.workspace_windows)) - margin_in # (len(self.windows) + 1) * margin
             height = self.screen.height_in_pixels - 2 * margin_out
 
             for i, win in enumerate(self.workspace_windows):
                 x = i * width + margin_out + i * margin_in
                 y = margin_out
+                win.setSize(width, height)
+                win.setPosition(x, y)
+                self.conn.core.ConfigureWindow(
+                    win.window,
+                    xcffib.xproto.ConfigWindow.X | 
+                    xcffib.xproto.ConfigWindow.Y |
+                    xcffib.xproto.ConfigWindow.Width | 
+                    xcffib.xproto.ConfigWindow.Height |
+                    xcffib.xproto.ConfigWindow.BorderWidth,
+                    [x, y, width, height, border_size]
+                )
+
+        elif layout == "rows":
+            width = self.screen.width_in_pixels - 2 * margin_out
+            height = ((self.screen.height_in_pixels - 2 * margin_out) // len(self.workspace_windows)) - margin_in
+
+            for i, win in enumerate(self.workspace_windows):
+                x = margin_out
+                y = i * height + margin_out + i * margin_in
                 win.setSize(width, height)
                 win.setPosition(x, y)
                 self.conn.core.ConfigureWindow(
@@ -221,6 +241,12 @@ class WindowManager:
 
     def cleanup_window(self, window):
         """Destroy a window"""
+        if not isinstance(window, Window):
+            for win in self.windows:
+                if win.window == window:
+                    window = win
+                    break
+
         if window in self.workspace_windows: 
             self.windows.remove(window)
             self.workspace_windows.remove(window)

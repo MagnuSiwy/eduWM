@@ -30,7 +30,9 @@ margin_out = 10
 margin_in = 5
 border_size = 2
 
-layout = "column"
+# columns - Divides the screen into columns
+# rows - Divides the screen into rows
+layout = "rows"
 
 # wallpaper: [path, mode]
 # wallpaper path - full path to your wallpaper
