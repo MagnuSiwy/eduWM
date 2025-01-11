@@ -18,7 +18,7 @@ class WindowManager:
             log.error(f"Cannot create the connection to X server: {e}")
         self.screen = self.conn.get_setup().roots[0]
         self.root = self.screen.root
-        self.utils = Utils(self.conn)
+        self.utils = Utils(self.conn, self.screen, self.root)
         self.windows = []
         self.keybinds = []
         self.focus_idx = 0
@@ -39,7 +39,7 @@ class WindowManager:
             ).check()
             log.info("Init process done")
         except:
-            log.info("Another window manager is already running.")
+            log.error("Another window manager is already running.")
             exit(1)
 
         self.conn.flush()
@@ -47,14 +47,17 @@ class WindowManager:
     
     def reload_config(self):
         importlib.reload(config)
+        self.rearrange_windows()
 
     
     def wallpaper_setup(self):
         wall, wall_mode = config.wallpaper
         try:
-            sp.run(["feh", f"--bg-{wall_mode}", wall])
+            self.utils.set_wallpaper(wall)
+            #sp.run(["feh", f"--bg-{wall_mode}", wall])
         except Exception as e:
             log.error(f"Error while setting a wallpaper: {e}")
+            sp.run(["feh", f"--bg-{wall_mode}", wall])
 
 
     def keybinds_setup(self):
@@ -84,9 +87,7 @@ class WindowManager:
 
         while True:
             try:
-                # log.info("Getting an event")
                 event = self.conn.wait_for_event()
-                # log.info(f"Handling an event {event}")
                 self.handle_event(event)
             except Exception as e:
                 log.error(f"Main loop: {e}")
@@ -104,9 +105,6 @@ class WindowManager:
         if isinstance(event, xcffib.xproto.EnterNotifyEvent):
             log.info(f"Mouse entered window: {event.event}")
             self.update_focus(event.event)
-        # if isinstance(event, xcffib.xproto.ConfigureRequestEvent):
-        #     log.info(f"Configure request for a window: {event.window}")
-        #     self.arrange_windows()
         if isinstance(event, xcffib.xproto.DestroyNotifyEvent):
             log.info(f"Unmap window: {event.window}")
             self.cleanup_window(event.window)
@@ -135,11 +133,28 @@ class WindowManager:
             self.focus_idx = len(self.workspace_windows) - 1
             self.arrange_windows()
 
+    
+    def rearrange_windows(self):
+        """Rearrange windows on all workspaces"""
+        workspaces = set()
+        for win in self.windows:
+            workspaces.add(win.workspace)
 
-    def arrange_windows(self):
-        """Tile all managed windows."""
-        if not self.workspace_windows:
-            return
+        workspace_wins = []
+        for i in workspaces:
+            for win in self.windows:
+                if win.workspace == i:
+                    workspace_wins.append(win)
+            self.arrange_windows(workspace_wins)
+            workspace_wins = []
+
+
+    def arrange_windows(self, workspace_wins = []):
+        """Tile managed windows."""
+        if not workspace_wins:
+            if not self.workspace_windows:
+                return
+            workspace_wins = self.workspace_windows
 
         margin_out = config.margin_out
         margin_in = config.margin_in
@@ -147,10 +162,10 @@ class WindowManager:
         layout = config.layout
 
         if layout == "columns":
-            width = ((self.screen.width_in_pixels - 2 * margin_out) // len(self.workspace_windows)) - margin_in # (len(self.windows) + 1) * margin
+            width = ((self.screen.width_in_pixels - 2 * margin_out) // len(workspace_wins)) - margin_in # (len(self.windows) + 1) * margin
             height = self.screen.height_in_pixels - 2 * margin_out
 
-            for i, win in enumerate(self.workspace_windows):
+            for i, win in enumerate(workspace_wins):
                 x = i * width + margin_out + i * margin_in
                 y = margin_out
                 win.setSize(width, height)
@@ -167,9 +182,9 @@ class WindowManager:
 
         elif layout == "rows":
             width = self.screen.width_in_pixels - 2 * margin_out
-            height = ((self.screen.height_in_pixels - 2 * margin_out) // len(self.workspace_windows)) - margin_in
+            height = ((self.screen.height_in_pixels - 2 * margin_out) // len(workspace_wins)) - margin_in
 
-            for i, win in enumerate(self.workspace_windows):
+            for i, win in enumerate(workspace_wins):
                 x = margin_out
                 y = i * height + margin_out + i * margin_in
                 win.setSize(width, height)
@@ -202,27 +217,6 @@ class WindowManager:
         self.conn.flush()
 
 
-    def move_mouse(self, window):
-        """Move the mouse pointer to the center of the window."""
-        geometry = self.conn.core.GetGeometry(window).reply()
-        x, y, width, height = geometry.x, geometry.y, geometry.width, geometry.height
-
-        center_x = x + width // 2
-        center_y = y + height // 2
-
-        log.info("Move the mouse")
-
-        self.conn.core.WarpPointer(
-            0,
-            0,
-            0, 0, 0, 0, 
-            center_x, 
-            center_y
-        )
-
-        self.conn.flush()
-
-
     def update_focus(self, window):
         """Update the focused window"""
         windows = [win.window for win in self.workspace_windows]
@@ -241,6 +235,7 @@ class WindowManager:
 
     def cleanup_window(self, window):
         """Destroy a window"""
+        # If the functions gets a call from the event, get a window object out of window number
         if not isinstance(window, Window):
             for win in self.windows:
                 if win.window == window:
@@ -252,32 +247,34 @@ class WindowManager:
             self.workspace_windows.remove(window)
             self.focus_idx %= max(1, len(self.workspace_windows))
 
-            try:
-                reply = self.conn.core.GetProperty(
-                    False, window.window, self.wm_protocols, 
-                    xcffib.xproto.Atom.ATOM, 
-                    0, 
-                    32
-                ).reply()
+            reply = self.conn.core.GetProperty(
+                False, 
+                window.window, 
+                self.wm_protocols, 
+                xcffib.xproto.Atom.ATOM, 
+                0, 
+                32
+            ).reply()
 
-                if self.wm_delete_window in reply.value.to_atoms():
-                    data = xcffib.xproto.ClientMessageData.synthetic(
-                        [self.wm_delete_window, 0, 0, 0, 0])
-                    event = xcffib.xproto.ClientMessageEvent.synthetic(
-                        format=32,
-                        window=window.window, 
-                        type=self.wm_protocols,
-                        data=data
-                    )
-                    self.conn.core.SendEvent(
-                        False, 
-                        window.window, 
-                        xcffib.xproto.EventMask.NoEvent, 
-                        event.pack())
-                else:
-                    self.conn.core.KillClient(window.window)
-            except Exception as e:
-                log.error(f"Error while killing a window: {e}")
+            if self.wm_delete_window in reply.value.to_atoms():
+                data = xcffib.xproto.ClientMessageData.synthetic(
+                    [self.wm_delete_window, 0, 0, 0, 0], 
+                    "I" * 5
+                )
+                event = xcffib.xproto.ClientMessageEvent.synthetic(
+                    format=32,
+                    window=window.window, 
+                    type=self.wm_protocols,
+                    data=data
+                )
+                self.conn.core.SendEvent(
+                    False, 
+                    window.window, 
+                    xcffib.xproto.EventMask.NoEvent, 
+                    event.pack()
+                )
+            else:
+                # log.info(f"Killed a window")
                 self.conn.core.KillClient(window.window)
 
         self.conn.flush()
@@ -294,7 +291,6 @@ class WindowManager:
 
             self.focus_idx += 1
             self.focus_idx %= len(self.workspace_windows)
-            self.move_mouse(self.workspace_windows[self.focus_idx].window)
             self.update_focus(self.workspace_windows[self.focus_idx].window)
 
         elif function == "PREVIOUS_WINDOW":
@@ -302,7 +298,6 @@ class WindowManager:
 
             self.focus_idx -= 1
             self.focus_idx %= len(self.workspace_windows)
-            self.move_mouse(self.workspace_windows[self.focus_idx].window)
             self.update_focus(self.workspace_windows[self.focus_idx].window)
 
         elif function == "CLOSE":
@@ -319,7 +314,7 @@ class WindowManager:
             self.cleanup()
 
         else:
-            log.info("Incorrect action")
+            log.error("Incorrect action")
 
 
     def handle_keypress(self, event):

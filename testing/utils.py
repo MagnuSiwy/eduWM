@@ -6,8 +6,10 @@ from PIL import Image
 
 
 class Utils:
-    def __init__(self, conn):
+    def __init__(self, conn, screen, root):
         self.conn = conn
+        self.screen = screen
+        self.root = root
         self.min_keycode = self.conn.get_setup().min_keycode
         self.max_keycode = self.conn.get_setup().max_keycode
         self.keyboard_mapping = self.conn.core.GetKeyboardMapping(
@@ -21,32 +23,14 @@ class Utils:
 
 
     def get_keysym(self, keycode, keysym_offset):
-        """
-        Get a keysym from a keycode and state/modifier.
-
-        Only a partial implementation. For more details look at Keyboards section in X Protocol:
-        https://www.x.org/docs/XProtocol/proto.pdf
-
-        :param keycode: Keycode of keysym
-        :param keysym_offset: The modifier/state/offset we are accessing
-        :returns: Keysym
-        """
-
+        """Get a keysym from a keycode"""
         keysyms_per_keycode = self.keyboard_mapping.keysyms_per_keycode
 
-        return self.keyboard_mapping.keysyms[
-            (keycode - self.min_keycode) * keysyms_per_keycode + keysym_offset
-        ]
+        return self.keyboard_mapping.keysyms[(keycode - self.min_keycode) * keysyms_per_keycode + keysym_offset]
 
 
     def get_keycode(self, keysym):
-        """
-        Get a keycode from a keysym
-
-        :param keysym: keysym you wish to convert to keycode
-        :returns: Keycode if found, else None
-        """
-
+        """Get a keycode from a keysym"""
         keysyms_per_keycode = self.keyboard_mapping.keysyms_per_keycode
 
         for keycode in range(self.min_keycode, self.max_keycode + 1):
@@ -57,52 +41,71 @@ class Utils:
         return None
     
 
-    # def set_wallpaper(self, image_path):
-    #     img = Image.open(image_path).convert("RGB")
-    #     img = img.resize((self.screen.width_in_pixels, self.screen.height_in_pixels))
-    #     pixel_data = img.tobytes("raw", "BGRX")
+    def set_wallpaper(self, image_path, option="contain"):
+        # Load the image
+        img = Image.open(image_path).convert("RGB")
 
-    #     pixmap = self.conn.generate_id()
-    #     self.conn.core.CreatePixmap(
-    #         self.screen.root_depth, 
-    #         pixmap, 
-    #         self.root, 
-    #         self.screen.width_in_pixels, 
-    #         self.screen.height_in_pixels
-    #     )
+        # Resize the image while maintaining the aspect ratio
+        if option == "contain":
+            img.thumbnail((self.screen.width_in_pixels, self.screen.height_in_pixels))
+            new_img = Image.new("RGB", (self.screen.width_in_pixels, self.screen.height_in_pixels), (0, 0, 0))
+            new_img.paste(
+                img, 
+                ((self.screen.width_in_pixels - img.width) // 2, (self.screen.height_in_pixels - img.height) // 2)
+            )
+            img = new_img
 
-    #     gc = self.conn.generate_id()
-    #     self.conn.core.CreateGC(gc, pixmap, 0, [])
+        # Convert image to raw pixel data
+        pixel_data = img.tobytes("raw", "BGRX")
 
-    #     self.conn.core.PutImage(
-    #         xcffib.xproto.ImageFormat.ZPixmap,
-    #         pixmap,
-    #         gc,
-    #         self.screen.width_in_pixels, 
-    #         self.screen.height_in_pixels,
-    #         0,
-    #         0,
-    #         0,
-    #         24,
-    #         pixel_data
-    #     )
+        # Create a pixmap
+        pixmap = self.conn.generate_id()
+        self.conn.core.CreatePixmap(
+            self.screen.root_depth,  # Depth must match screen depth
+            pixmap,
+            self.root,
+            self.screen.width_in_pixels,
+            self.screen.height_in_pixels
+        )
 
-    #     self.conn.core.ChangeWindowAttributes(
-    #         self.root,
-    #         xcffib.xproto.CW.BackPixmap,
-    #         [pixmap]
-    #     )
+        # Create a graphics context
+        gc = self.conn.generate_id()
+        self.conn.core.CreateGC(gc, pixmap, 0, [])
 
-    #     self.conn.core.FreePixmap(pixmap)
-    #     self.conn.core.FreeGC(gc)
+        # Transfer image data to pixmap
+        self.conn.core.PutImage(
+            xcffib.xproto.ImageFormat.XYPixmap,
+            pixmap,
+            gc,
+            self.screen.width_in_pixels,
+            self.screen.height_in_pixels,
+            0,
+            0,
+            0,
+            self.screen.root_depth,
+            pixel_data
+        )
 
-    #     self.conn.core.ClearArea(
-    #         0,                      # Exposures (0 = don't generate)
-    #         self.root,              # Drawable (root window)
-    #         0,                      # X
-    #         0,                      # Y
-    #         self.screen.width_in_pixels,
-    #         self.screen.height_in_pixels
-    #     )
+        # Set pixmap as root background
+        self.conn.core.ChangeWindowAttributes(
+            self.root,
+            xcffib.xproto.CW.BackPixmap,
+            [pixmap]
+        )
 
-    #     self.conn.flush()
+        # Free the pixmap and graphics context
+        self.conn.core.FreePixmap(pixmap)
+        self.conn.core.FreeGC(gc)
+
+        # Clear the area to redraw the root window
+        self.conn.core.ClearArea(
+            0,
+            self.root,
+            0,
+            0,
+            self.screen.width_in_pixels,
+            self.screen.height_in_pixels
+        )
+
+        # Flush all changes
+        self.conn.flush()
