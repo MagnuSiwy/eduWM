@@ -1,6 +1,6 @@
 import gi
 import subprocess
-#switch installed programs page to recomennded apps
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
