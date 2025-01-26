@@ -13,7 +13,7 @@
 	Of course most of that functionalities are available to modification in configuration.</property>
   </object>
   <object class="GtkTextBuffer" id="introductionBuffer">
-    <property name="text" translatable="yes">	This application was created for short explanation of eduWM window manager. On the following pages you will get to know about manager functionalities, programs installed with the environment and how to configurate it.
+    <property name="text" translatable="yes">	This application was created for short explanation of eduWM window manager. On the following pages you will get to know about manager functionalities, programs recommended to install with description of their purpose and how to configurate the manager.
 	To navigate between pages, use buttons with arrows in the header bar.</property>
   </object>
   <object class="GtkImage" id="nextButtonImage">
@@ -27,8 +27,14 @@
     <property name="icon-name">go-previous</property>
   </object>
   <object class="GtkTextBuffer" id="programsBuffer">
-    <property name="text" translatable="yes">To make it easier to use the environment, basic programs have been provided with it:
-- 
+    <property name="text" translatable="yes">To the best operation of the environment, the following applications are recommended
+- feh - tool used to change the wallpaper (this one is required to have this functionality, but selected program can be switched in configuration)
+- nwg-look - tool for customization GTK theme
+- polybar - it creates status bar
+- qt6ct - tool used to change QC theme
+- thunar - file manager based on GTK
+- kitty - terminal
+- picom - compositor adding visual effects
 </property>
   </object>
   <object class="GtkImage" id="runConfigurationAppImage">
@@ -49,7 +55,7 @@
         <property name="visible">True</property>
         <property name="can-focus">False</property>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="inctroductionPage">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="shadow-type">in</property>
@@ -113,7 +119,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="functionalitiesPage">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="shadow-type">in</property>
@@ -179,7 +185,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="programsPage">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="shadow-type">in</property>
@@ -202,7 +208,7 @@
                         <property name="can-focus">False</property>
                         <property name="margin-top">10</property>
                         <property name="margin-bottom">10</property>
-                        <property name="label" translatable="yes">Installed programs</property>
+                        <property name="label" translatable="yes">Recommended aplications</property>
                         <property name="justify">center</property>
                         <attributes>
                           <attribute name="size" value="15360"/>
@@ -245,7 +251,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="configurationPage">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="shadow-type">in</property>
@@ -311,7 +317,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="goodbyePage">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="shadow-type">in</property>

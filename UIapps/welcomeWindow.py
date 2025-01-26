@@ -1,7 +1,7 @@
 import gi
 import subprocess
 import os
-#switch installed programs page to recomennded apps
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
@@ -36,7 +36,7 @@ class WelcomeApp():
         if i == len(pages) - 1: return
         widget.set_visible_child(pages[i+1])
 
-    def onRunConfigAppClicked(self, arg):
+    def onRunConfigAppClicked(self, widget):
         subprocess.Popen(["python3", os.path.join(self.path, "eduWMconfig.py")])
 
 

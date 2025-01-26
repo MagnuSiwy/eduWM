@@ -4,10 +4,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from wm import config
 
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
-# change wallpaper entry to two parts
+
 
 class ConfigApp():
     def __init__(self):
@@ -22,14 +21,17 @@ class ConfigApp():
         self.windowChanges = []
         self.othersChanges = []
         self.lastEntryText = None
-        self.entryBuffers = { "margin_out": None, "margin_in": None, "layout": None, "border_size": None, "focus": None, "wallpaper": None }
+        self.entryBuffers = { "margin_out": None, "margin_in": None, "layout": None, "border_size": None, "focus": None, "wallpaperPath": None, "wallpaperApp": None }
 
         self.keybindsTreeView = self.builder.get_object("keybindsTreeView")
         self.keybindsListstore = self.builder.get_object("keybindsListstore")
 
         self.loadModel(self.keybindsListstore, config.keybinds)
         for key in self.entryBuffers.keys():
+            if key.startswith("wallpaper"):
+                continue
             self.loadBuffer(key)
+        self.loadWallpaperBuffers()
 
         window = self.builder.get_object("mainWindow")
         window.set_deletable(False)
@@ -50,6 +52,15 @@ class ConfigApp():
         self.entryBuffers[key] = buffer
         buffer.set_text(text, len(text))
 
+    def loadWallpaperBuffers(self):
+        pathBuffer = self.builder.get_object("wallpaperPathBuffer")
+        appBuffer = self.builder.get_object("wallpaperAppBuffer")
+        wallpaperAttribute = getattr(config, "wallpaper")
+        self.entryBuffers["wallpaperPath"] = pathBuffer
+        self.entryBuffers["wallpaperApp"] = appBuffer
+        pathBuffer.set_text(wallpaperAttribute[0], len(wallpaperAttribute[0]))
+        appBuffer.set_text(wallpaperAttribute[1], len(wallpaperAttribute[1]))
+
     def onCellEdited(self, widget, path, newText):
         liststore = widget.get_model()
         columnTitle = widget.get_cursor()[1].get_title()
@@ -59,7 +70,15 @@ class ConfigApp():
         liststore[path][column] = newText
 
     def onEntryEdited(self, widget):
-        self.windowChanges.append((widget, self.lastEntryText))
+        element = widget
+        while not isinstance(element,Gtk.ScrolledWindow):
+            element = element.get_parent()
+        if element.get_name() == "windowPage":
+            self.windowChanges.append((widget, self.lastEntryText))
+        else:
+            self.othersChanges.append((widget, self.lastEntryText))
+        self.lastEntryText = widget.get_text()
+
 
     def onEntryFocus(self, widget, focus):
         self.lastEntryText = widget.get_text()
@@ -121,6 +140,11 @@ class ConfigApp():
                         value = value
                     newConfig.append(f"{variable} = {value!r}\n")
                     continue
+                if variable.startswith("wallpaper"):
+                    path = self.entryBuffers["wallpaperPath"].get_text()
+                    app = self.entryBuffers["wallpaperApp"].get_text()
+                    newConfig.append(f"{variable} = [{path!r}, {app!r}]\n")
+                    continue
             newConfig.append(line)
 
         with open(self.configFile, 'w') as file:
@@ -152,6 +176,14 @@ class ConfigApp():
     def onResetConfig(self, widget):
         self.keybindsListstore.clear()
         self.loadModel(self.keybindsListstore, config.keybinds)
+        for key in self.entryBuffers.keys():
+            if key.startswith("wallpaper"):
+                continue
+            self.loadBuffer(key)
+        self.loadWallpaperBuffers()
+        self.keybindsChanges = []
+        self.windowChanges = []
+        self.othersChanges = []
 
 
 if __name__ == "__main__":
