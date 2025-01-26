@@ -7,7 +7,6 @@ from wm import config
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
-
 class ConfigApp():
     def __init__(self):
         self.builder = Gtk.Builder()
@@ -21,7 +20,8 @@ class ConfigApp():
         self.windowChanges = []
         self.othersChanges = []
         self.lastEntryText = None
-        self.entryBuffers = { "margin_out": None, "margin_in": None, "layout": None, "border_size": None, "focus": None, "wallpaperPath": None, "wallpaperApp": None }
+        self.entryBuffers = { "margin_out": None, "margin_in": None, "layout": None, "border_size": None, "wallpaperPath": None, "wallpaperMode": None }
+        self.openWelcomeApp = getattr(config, "open_welcome_app_on_start")
 
         self.keybindsTreeView = self.builder.get_object("keybindsTreeView")
         self.keybindsListstore = self.builder.get_object("keybindsListstore")
@@ -54,12 +54,15 @@ class ConfigApp():
 
     def loadWallpaperBuffers(self):
         pathBuffer = self.builder.get_object("wallpaperPathBuffer")
-        appBuffer = self.builder.get_object("wallpaperAppBuffer")
+        appBuffer = self.builder.get_object("wallpaperModeBuffer")
         wallpaperAttribute = getattr(config, "wallpaper")
         self.entryBuffers["wallpaperPath"] = pathBuffer
-        self.entryBuffers["wallpaperApp"] = appBuffer
+        self.entryBuffers["wallpaperMode"] = appBuffer
         pathBuffer.set_text(wallpaperAttribute[0], len(wallpaperAttribute[0]))
         appBuffer.set_text(wallpaperAttribute[1], len(wallpaperAttribute[1]))
+
+    def onCheckboxPress(self, widget):
+        self.openWelcomeApp = widget.get_active()
 
     def onCellEdited(self, widget, path, newText):
         liststore = widget.get_model()
@@ -142,8 +145,11 @@ class ConfigApp():
                     continue
                 if variable.startswith("wallpaper"):
                     path = self.entryBuffers["wallpaperPath"].get_text()
-                    app = self.entryBuffers["wallpaperApp"].get_text()
+                    app = self.entryBuffers["wallpaperMode"].get_text()
                     newConfig.append(f"{variable} = [{path!r}, {app!r}]\n")
+                    continue
+                if variable.startswith("open_welcome_app_on_start"):
+                    newConfig.append(f"{variable} = {self.openWelcomeApp}\n")
                     continue
             newConfig.append(line)
 
