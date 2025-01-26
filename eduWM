@@ -8,4 +8,4 @@ export DISPLAY=:0
 
 # Start the window manager
 echo "Starting the Python window manager..."
-python3 ~/eduWM/testing/wm.py
+python3 ~/eduWM/wm/eduWM.py

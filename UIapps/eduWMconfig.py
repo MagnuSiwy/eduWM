@@ -1,14 +1,20 @@
 import gi
-import config
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from wm import config
+
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 # change wallpaper entry to two parts
 
-class Window():
+class ConfigApp():
     def __init__(self):
         self.builder = Gtk.Builder()
-        self.builder.add_from_file("eduWMconfig.glade")
+        self.gladeFile = os.path.join(os.path.dirname(__file__), "eduWMconfig.glade")
+        self.configFile = os.path.join(os.path.dirname(__file__), "../wm/config.py")
+        self.builder.add_from_file(self.gladeFile)
         self.builder.connect_signals(self)
         self.selected = None
         self.selectedRow = None
@@ -26,10 +32,13 @@ class Window():
             self.loadBuffer(key)
 
         window = self.builder.get_object("mainWindow")
+        window.set_deletable(False)
+        window.set_type_hint(Gdk.WindowTypeHint.DIALOG)
         window.show()
 
     def onQuit(widget, arg):
         Gtk.main_quit()
+        return True
 
     def loadModel(self, liststore, data):
         for row in data:
@@ -76,7 +85,7 @@ class Window():
             return
 
     def onSaveConfig(self, widget):
-        with open("test.py", "r") as configFile:
+        with open(self.configFile, "r") as configFile:
             lines = configFile.readlines()
 
         newConfig = []
@@ -114,7 +123,7 @@ class Window():
                     continue
             newConfig.append(line)
 
-        with open("test.py", 'w') as file:
+        with open(self.configFile, 'w') as file:
             file.writelines(newConfig)
 
     def onUndoChange(self, widget):
@@ -146,5 +155,5 @@ class Window():
 
 
 if __name__ == "__main__":
-    main = Window()
+    main = ConfigApp()
     Gtk.main()

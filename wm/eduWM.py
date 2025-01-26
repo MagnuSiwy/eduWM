@@ -3,11 +3,12 @@ from systemd.journal import JournalHandler
 import xcffib
 import xcffib.xproto
 from xcffib.xproto import EventMask
-import config
 from utils import Utils
 from window import Window
 import subprocess as sp
 import importlib
+import config
+import os
 
 
 class WindowManager:
@@ -60,6 +61,22 @@ class WindowManager:
             sp.run(["feh", f"--bg-{wall_mode}", wall])
 
 
+    def launch_welcome_app(self):
+        try:
+            script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../UIapps/welcomeWindow.py"))
+            sp.Popen(["python3", script_path], start_new_session = True)
+        except Exception as e:
+            log.error(f"Error while opening the welcome app: {e}")
+
+
+    def launch_config_app(self):
+        try:
+            script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../UIapps/eduWMconfig.py"))
+            sp.Popen(["python3", script_path], start_new_session = True)
+        except Exception as e:
+            log.error(f"Error while opening the config app: {e}")
+
+
     def keybinds_setup(self):
         self.keybinds = []
         for mod, key, command in config.keybinds:
@@ -85,12 +102,15 @@ class WindowManager:
         self.wallpaper_setup()
         self.keybinds_setup()
 
+        if config.open_welcome_app_on_start:
+            self.launch_welcome_app()
+
         while True:
             try:
                 event = self.conn.wait_for_event()
                 self.handle_event(event)
             except Exception as e:
-                log.error(f"Main loop: {e}")
+                log.error(f"Main loop error: {e}")
                 break 
 
 
@@ -312,6 +332,9 @@ class WindowManager:
         elif function == "EXIT":
             log.info("Exiting window manager")
             self.cleanup()
+
+        elif function == "CONFIG_APP":
+            self.launch_config_app()
 
         else:
             log.error("Incorrect action")
