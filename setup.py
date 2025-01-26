@@ -9,15 +9,16 @@ setup(
     description = "Window Manager for newbies",
     packages = find_packages(),
     install_requires = [
-        "pyyaml",
         "xcffib",
-        "xpybutil"
+        "xpybutil",
+        "gi",
+        "PIL",
     ],
     classifiers = [
         "Programming Language :: Python",
         "Operating System :: POSIX :: Linux"
     ],
-    keywords = ["python", "eduWM", "Linux", "newcomer", "newbie"],
+    keywords = ["python", "eduWM", "Linux", "newcomer", "newbie", "window manager", "wm"],
     python_requires = ">=3.6"
 )
 

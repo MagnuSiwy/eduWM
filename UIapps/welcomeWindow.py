@@ -18,7 +18,7 @@ class WelcomeApp():
         window.set_type_hint(Gdk.WindowTypeHint.DIALOG)
         window.show()
 
-    def onQuit(widget):
+    def onQuit(self, widget):
         Gtk.main_quit()
         return True
 
