@@ -1,2 +1,5 @@
 wm/__pycache__/
 wm_debug.log
+UIapps/eduWMconfig.glade~
+UIapps/welcomeWindow.glade~
+UIapps/__pycache__
