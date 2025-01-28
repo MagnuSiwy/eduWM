@@ -32,6 +32,8 @@ open_welcome_app_on_start = True
 margin_out = 10
 margin_in = 5
 border_size = 2
+border_color_active = "ff0000"
+border_color = "222222"
 
 # columns - Divides the screen into columns
 # rows - Divides the screen into rows

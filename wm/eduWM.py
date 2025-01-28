@@ -124,7 +124,7 @@ class WindowManager:
             self.handle_keypress(event)
         if isinstance(event, xcffib.xproto.EnterNotifyEvent):
             log.info(f"Mouse entered window: {event.event}")
-            self.update_focus(event.event)
+            self.update_focus(event.event, self.workspace_windows[self.focus_idx].window)
         if isinstance(event, xcffib.xproto.DestroyNotifyEvent):
             log.info(f"Unmap window: {event.window}")
             self.cleanup_window(event.window)
@@ -150,7 +150,7 @@ class WindowManager:
             window_obj = Window(window, self.curr_workspace)
             self.windows.append(window_obj)
             self.workspace_windows.append(window_obj)
-            self.focus_idx = len(self.workspace_windows) - 1
+            #self.focus_idx = len(self.workspace_windows) - 1
             self.arrange_windows()
 
     
@@ -237,12 +237,26 @@ class WindowManager:
         self.conn.flush()
 
 
-    def update_focus(self, window):
+    def change_border_color(self, window, color):
+        border_color = int(color, 16)
+        self.conn.core.ChangeWindowAttributes(
+            window,
+            xcffib.xproto.CW.BorderPixel,
+            [border_color]
+        )
+
+
+    def update_focus(self, window, prev_win = None):
         """Update the focused window"""
+        if prev_win:
+            self.change_border_color(prev_win, config.border_color)
+        
         windows = [win.window for win in self.workspace_windows]
         if window in windows:
             self.focus_idx = windows.index(window)
             log.info(f"Focus changed to {window}")
+
+            self.change_border_color(window, config.border_color_active)
 
             self.conn.core.SetInputFocus(
                 xcffib.xproto.InputFocus.PointerRoot, 
@@ -309,16 +323,18 @@ class WindowManager:
         elif function == "NEXT_WINDOW":
             if len(self.workspace_windows) <= 1: return 
 
+            prev_win = self.workspace_windows[self.focus_idx].window
             self.focus_idx += 1
             self.focus_idx %= len(self.workspace_windows)
-            self.update_focus(self.workspace_windows[self.focus_idx].window)
+            self.update_focus(self.workspace_windows[self.focus_idx].window, prev_win)
 
         elif function == "PREVIOUS_WINDOW":
             if len(self.workspace_windows) <= 1: return 
 
+            prev_win = self.workspace_windows[self.focus_idx].window
             self.focus_idx -= 1
             self.focus_idx %= len(self.workspace_windows)
-            self.update_focus(self.workspace_windows[self.focus_idx].window)
+            self.update_focus(self.workspace_windows[self.focus_idx].window, prev_win)
 
         elif function == "CLOSE":
             if self.workspace_windows:
