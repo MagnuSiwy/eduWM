@@ -21,8 +21,8 @@ class ConfigApp():
         self.othersChanges = []
         self.lastEntryText = None
         self.entryBuffers = { "margin_out": None, "margin_in": None, "layout": None, "border_size": None, "wallpaperPath": None, "wallpaperMode": None }
-        self.openWelcomeApp = getattr(config, "open_welcome_app_on_start")
-
+        
+        self.welcomeCheckbox = self.builder.get_object("welcomeCheckbox")
         self.keybindsTreeView = self.builder.get_object("keybindsTreeView")
         self.keybindsListstore = self.builder.get_object("keybindsListstore")
 
@@ -32,6 +32,7 @@ class ConfigApp():
                 continue
             self.loadBuffer(key)
         self.loadWallpaperBuffers()
+        self.checkboxInit()
 
         window = self.builder.get_object("mainWindow")
         window.set_deletable(False)
@@ -60,6 +61,10 @@ class ConfigApp():
         self.entryBuffers["wallpaperMode"] = appBuffer
         pathBuffer.set_text(wallpaperAttribute[0], len(wallpaperAttribute[0]))
         appBuffer.set_text(wallpaperAttribute[1], len(wallpaperAttribute[1]))
+
+    def checkboxInit(self):
+        self.openWelcomeApp = getattr(config, "open_welcome_app_on_start")
+        self.welcomeCheckbox.set_active(self.openWelcomeApp)
 
     def onCheckboxPress(self, widget):
         self.openWelcomeApp = widget.get_active()
