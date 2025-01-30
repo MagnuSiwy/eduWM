@@ -124,7 +124,10 @@ class WindowManager:
             self.handle_keypress(event)
         if isinstance(event, xcffib.xproto.EnterNotifyEvent):
             log.info(f"Mouse entered window: {event.event}")
-            self.update_focus(event.event, self.workspace_windows[self.focus_idx].window)
+            try:
+                self.update_focus(event.event, self.workspace_windows[self.focus_idx].window if self.workspace_windows else None)
+            except:
+                self.update_focus(event.event)
         if isinstance(event, xcffib.xproto.DestroyNotifyEvent):
             log.info(f"Unmap window: {event.window}")
             self.cleanup_window(event.window)
@@ -150,7 +153,7 @@ class WindowManager:
             window_obj = Window(window, self.curr_workspace)
             self.windows.append(window_obj)
             self.workspace_windows.append(window_obj)
-            #self.focus_idx = len(self.workspace_windows) - 1
+            # self.focus_idx = len(self.workspace_windows) - 1
             self.arrange_windows()
 
     
@@ -232,8 +235,7 @@ class WindowManager:
                 self.workspace_windows.append(window)
                 self.conn.core.MapWindow(window.window)
 
-        if self.workspace_windows:
-            self.update_focus(self.workspace_windows[0].window)        
+        self.focus_idx = min(self.focus_idx, len(self.workspace_windows))
         self.conn.flush()
 
 

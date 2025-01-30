@@ -6,7 +6,7 @@ ALT = "Mod1"
 
 MOD = ALT
 
-# Key bindings: [keysym, modifiers, callback]
+# Key bindings: [modifier, keysym, callback]
 keybinds = [
     [MOD, 't', 'xterm'],
     [MOD, 'f', 'firefox'],
@@ -23,24 +23,24 @@ keybinds = [
     [MOD, '5', 5],
 ]
 
-# mouse - Always move mouse to the focused window
-
-focus = 'mouse'
-
 open_welcome_app_on_start = True
 
+# Margins around the group of windows and between the windows
 margin_out = 10
 margin_in = 5
+
 border_size = 2
+# Border color for active and inactive window
+# Set to hex colors
 border_color_active = "ff0000"
 border_color = "222222"
 
 # columns - Divides the screen into columns
 # rows - Divides the screen into rows
-layout = 'columns'
+layout = 'rows'
 
 # wallpaper: [path, mode]
-# wallpaper path - full path to your wallpaper
+# wallpaper path - full path to the wallpaper
 # wallpaper modes:
 #   scale - Scale the image to fit the screen and preseve the aspect ratio
 #   fill - Scale the image and crop to fit the screen aspect ratio
